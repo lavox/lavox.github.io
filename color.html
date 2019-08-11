@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8"/>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <style>
+        table { border:solid 1px #aaaaaa; }
+        th, td { border:solid 1px #aaaaaa; padding: 8px; }
+        </style>
+</head>
+
+<body>
+<div id="app">
+    <h1>iOS13.0で導入されたUIColorの色見本</h1>
+    <table cellspacing="0" style="margin:0 auto">
+        <thead>
+            <th>名称</th>
+            <th style="background-color: #ffffff; color: #000000">lightモード</th>
+            <th style="background-color: #000000; color: #ffffff">darkモード</th>
+        </thead>
+        <tr v-for="c in colors">
+            <td>{{ c.name }}</td>
+            <td style="background-color: #ffffff; color: #000000">
+                <span v-bind:style="{color: c.light}">■</span> {{ c.light }}
+            </td>
+            <td style="background-color: #000000; color: #ffffff">
+                <span v-bind:style="{color: c.dark}">■</span> {{ c.dark }}
+            </td>
+        <tr>
+        </tr>
+    </table>
+</div>
+
+<script>
+var app = new Vue({
+    el: '#app',
+    data: {
+      colors: [
+{ name: "label", light: "rgba(0, 0, 0, 1.0)", dark: "rgba(255, 255, 255, 1.0)"},
+{ name: "secondaryLabel", light: "rgba(60, 60, 67, 0.6)", dark: "rgba(235, 235, 245, 0.6)"},
+{ name: "tertiaryLabel", light: "rgba(60, 60, 67, 0.3)", dark: "rgba(235, 235, 245, 0.3)"},
+{ name: "quaternaryLabel", light: "rgba(60, 60, 67, 0.18)", dark: "rgba(235, 235, 245, 0.18)"},
+{ name: "systemFill", light: "rgba(120, 120, 128, 0.2)", dark: "rgba(120, 120, 128, 0.36)"},
+{ name: "secondarySystemFill", light: "rgba(120, 120, 128, 0.16)", dark: "rgba(120, 120, 128, 0.32)"},
+{ name: "tertiarySystemFill", light: "rgba(118, 118, 128, 0.12)", dark: "rgba(118, 118, 128, 0.24)"},
+{ name: "quaternarySystemFill", light: "rgba(116, 116, 128, 0.08)", dark: "rgba(118, 118, 128, 0.18)"},
+{ name: "placeholderText", light: "rgba(60, 60, 67, 0.3)", dark: "rgba(235, 235, 245, 0.3)"},
+{ name: "systemBackground", light: "rgba(255, 255, 255, 1.0)", dark: "rgba(0, 0, 0, 1.0)"},
+{ name: "secondarySystemBackground", light: "rgba(242, 242, 247, 1.0)", dark: "rgba(28, 28, 30, 1.0)"},
+{ name: "tertiarySystemBackground", light: "rgba(255, 255, 255, 1.0)", dark: "rgba(44, 44, 46, 1.0)"},
+{ name: "systemGroupedBackground", light: "rgba(242, 242, 247, 1.0)", dark: "rgba(0, 0, 0, 1.0)"},
+{ name: "secondarySystemGroupedBackground", light: "rgba(255, 255, 255, 1.0)", dark: "rgba(28, 28, 30, 1.0)"},
+{ name: "tertiarySystemGroupedBackground", light: "rgba(242, 242, 247, 1.0)", dark: "rgba(44, 44, 46, 1.0)"},
+{ name: "separator", light: "rgba(60, 60, 67, 0.29)", dark: "rgba(84, 84, 88, 0.6)"},
+{ name: "opaqueSeparator", light: "rgba(198, 198, 200, 1.0)", dark: "rgba(56, 56, 58, 1.0)"},
+{ name: "link", light: "rgba(0, 122, 255, 1.0)", dark: "rgba(9, 132, 255, 1.0)"},
+{ name: "darkText", light: "rgba(0, 0, 0, 1.0)", dark: "rgba(0, 0, 0, 1.0)"},
+{ name: "lightText", light: "rgba(255, 255, 255, 0.6)", dark: "rgba(255, 255, 255, 0.6)"},
+{ name: "systemBlue", light: "rgba(0, 122, 255, 1.0)", dark: "rgba(10, 132, 255, 1.0)"},
+{ name: "systemGreen", light: "rgba(52, 199, 89, 1.0)", dark: "rgba(48, 209, 88, 1.0)"},
+{ name: "systemIndigo", light: "rgba(88, 86, 214, 1.0)", dark: "rgba(94, 92, 230, 1.0)"},
+{ name: "systemOrange", light: "rgba(255, 149, 0, 1.0)", dark: "rgba(255, 159, 10, 1.0)"},
+{ name: "systemPink", light: "rgba(255, 45, 85, 1.0)", dark: "rgba(255, 55, 95, 1.0)"},
+{ name: "systemPurple", light: "rgba(175, 82, 222, 1.0)", dark: "rgba(191, 90, 242, 1.0)"},
+{ name: "systemRed", light: "rgba(255, 59, 48, 1.0)", dark: "rgba(255, 69, 58, 1.0)"},
+{ name: "systemTeal", light: "rgba(90, 200, 250, 1.0)", dark: "rgba(100, 210, 255, 1.0)"},
+{ name: "systemYellow", light: "rgba(255, 204, 0, 1.0)", dark: "rgba(255, 214, 10, 1.0)"},
+{ name: "systemGray", light: "rgba(142, 142, 147, 1.0)", dark: "rgba(142, 142, 147, 1.0)"},
+{ name: "systemGray2", light: "rgba(174, 174, 178, 1.0)", dark: "rgba(99, 99, 102, 1.0)"},
+{ name: "systemGray3", light: "rgba(199, 199, 204, 1.0)", dark: "rgba(72, 72, 74, 1.0)"},
+{ name: "systemGray4", light: "rgba(209, 209, 214, 1.0)", dark: "rgba(58, 58, 60, 1.0)"},
+{ name: "systemGray5", light: "rgba(229, 229, 234, 1.0)", dark: "rgba(44, 44, 46, 1.0)"},
+{ name: "systemGray6", light: "rgba(242, 242, 247, 1.0)", dark: "rgba(28, 28, 30, 1.0)"},
+{ name: "clear", light: "rgba(0, 0, 0, 0.0)", dark: "rgba(0, 0, 0, 0.0)"},
+      ]
+    }
+  })
+</script>
+</body>
+</html>
