@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+</head>
+<body>
+  <div id="app">
+    <v-app>
+      <v-content>
+        <v-container>
+            <v-card class="mx-auto" max-width="344">
+                <v-card-title>WTHORファイル変換</v-card-title>
+                <v-card-text>
+                    <v-file-input id="jou_file" label=".jou ファイル" accept=".jou" v-on:change="checkButtonDisabled"></v-file-input>
+                    <v-file-input id="trn_file" label=".trn ファイル" accept=".trn" v-on:change="checkButtonDisabled"></v-file-input>
+                    <v-file-input id="wtb_file" label=".wtb ファイル" accept=".wtb" v-on:change="checkButtonDisabled"></v-file-input>
+                    <v-radio-group label="出力形式" v-model="format">
+                        <v-radio value="all" label ="全項目出力"></v-radio>
+                        <v-radio value="kifubox" label ="棋譜Box形式"></v-radio>
+                    </v-radio-group>
+                    <v-list dense v-if="createCentry">
+                        <v-list-item>
+                            <v-list-item-content>作成日:</v-list-item-content>
+                            <v-list-item-content class="align-end">{{ createCentry }}{{ createYear }}/{{ createMonth }}/{{ createDay }}</v-list-item-content>
+                        </v-list-item>
+                        <v-list-item>
+                            <v-list-item-content>試合数:</v-list-item-content>
+                            <v-list-item-content class="align-end">{{ gameCount }}</v-list-item-content>
+                        </v-list-item>
+                        <v-list-item>
+                            <v-list-item-content>年:</v-list-item-content>
+                            <v-list-item-content class="align-end">{{ year }}</v-list-item-content>
+                        </v-list-item>
+                        <v-list-item>
+                            <v-list-item-content>盤サイズ:</v-list-item-content>
+                            <v-list-item-content class="align-end">{{ boardSize }}</v-list-item-content>
+                        </v-list-item>
+                        <v-list-item>
+                            <v-list-item-content>深さ:</v-list-item-content>
+                            <v-list-item-content class="align-end">{{ depth }}</v-list-item-content>
+                        </v-list-item>
+                    </v-list>
+                </v-card-text>
+                <v-card-actions>
+                    <v-btn color="primary" v-bind:disabled="isButtonDisabled" v-on:click="convert()">変換</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-container>
+    </v-content>
+    </v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+<script>
+new Vue({
+    el: '#app',
+    vuetify: new Vuetify(),
+    data: { 
+        format: 'all',
+        createCentry: null,
+        createYear: null,
+        createMonth: null,
+        createDay: null,
+        gameCount: null,
+        count: null,
+        year: null,
+        boardSize: null,
+        type: null,
+        depth: null,
+        isButtonDisabled: true,
+    },
+    methods: {
+        convert: function() {
+            let decoder = new TextDecoder('iso-8859-2');
+            var players = [];
+            var tournaments = [];
+            var games = [];
+
+            // .jouファイル読み込み用
+            var jouFile = document.getElementById('jou_file').files[0];
+            var jouReader = new FileReader();
+            jouReader.onload = function(event) {
+                var data = event.target.result;
+                // ヘッダ読み込み
+                var header = new WthorHeader(data);
+                var idx = WthorHeader.HEADER_SIZE;
+                // データ読み込み
+                for ( var i = 0 ; i < header.count ; i++ ) {
+                    players.push(decoder.decode((new Uint8Array(data, idx, 20)).filter(elem => elem != 0)));
+                    idx += 20;
+                }
+
+                // .trnファイル読み込み開始
+                trnReader.readAsArrayBuffer(trnFile);
+            }
+
+            // .trnファイル読み込み用
+            var trnFile = document.getElementById('trn_file').files[0];
+            var trnReader = new FileReader();
+            trnReader.onload = function(event) {
+                var data = event.target.result;
+                // ヘッダ読み込み
+                var header = new WthorHeader(data);
+                var idx = WthorHeader.HEADER_SIZE;
+                // データ読み込み
+                for ( var i = 0 ; i < header.count ; i++ ) {
+                    tournaments.push(decoder.decode((new Uint8Array(data, idx, 26)).filter(elem => elem != 0)));
+                    idx += 26;
+                }
+
+                // .wtbファイル読み込み開始
+                wtbReader.readAsArrayBuffer(wtbFile);
+            }
+
+            // .wtbフィル読み込み用
+            var wtbFile = document.getElementById('wtb_file').files[0];
+            var wtbReader = new FileReader();
+            wtbReader.onload = function(event) {
+                var data = event.target.result;
+                var dv = new DataView(data); 
+                // ヘッダ読み込み
+                var header = new WthorHeader(data);
+                // ヘッダ情報をバインド(画面表示用)
+                this.bindHeaderInfo(header);
+
+                var idx = WthorHeader.HEADER_SIZE;
+                // データ読み込み
+                for ( var i = 0 ; i < header.gameCount ; i++ ) {
+                    // 大会ID
+                    tournamentId = dv.getUint16(idx, true); idx += 2;
+                    // 黒番プレーヤーID
+                    blackId = dv.getUint16(idx, true); idx += 2;
+                    // 白番プレーヤーID
+                    whiteId = dv.getUint16(idx, true); idx += 2;
+                    // 黒番の石数
+                    blackScore = dv.getUint8(idx, true); idx += 1;
+                    // 黒番の石数理論値(終盤depth手が最善だった場合)
+                    theoreticalBlackScore = dv.getUint8(idx, true); idx += 1;
+                    transcript = ''
+                    for ( var j = 0 ; j < 60 ; j++ ) {
+                        move = dv.getUint8(idx, true); idx += 1;
+                        if ( move >= 11 && move <= 88 ) {
+                            transcript += String.fromCharCode((move % 10) + 96)
+                            transcript += String.fromCharCode(Math.floor(move / 10) + 48)
+                        }
+                    }
+                    games.push({
+                        tournamentId: tournamentId,
+                        tournamentName: tournamentId < tournaments.length ? tournaments[tournamentId] : '?',
+                        blackPlayerId: blackId,
+                        blackPlayerName: blackId < players.length ? players[blackId] : '?',
+                        whitePlayerId: whiteId,
+                        whitePlayerName: whiteId < players.length ? players[whiteId] : '?',
+                        blackScore: blackScore,
+                        theoreticalBlackScore: theoreticalBlackScore,
+                        transcript: transcript
+                    });
+                }
+                outputCsv(games);
+            }.bind(this)
+
+            // 結果出力用
+            var outputCsv = function(games) {
+                var csv = '';
+                if ( this.format == 'all' ) {
+                    csv = this.formatForAll(games);
+                } else if ( this.format == 'kifubox' ) {
+                    csv = this.formatForKifuBox(games);
+                } else {
+                    return;
+                }
+                var blob = new Blob(['\ufeff', csv], { "type" : "text/csv" });
+                let link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = 'wthor.csv';
+                link.click();
+            }.bind(this)
+
+            // .jouファイル読み込み開始
+            jouReader.readAsArrayBuffer(jouFile);
+        },
+        // 全項目出力用
+        formatForAll: function(games) {
+            csv = 'tournamentId,tournamentName,blackPlayerId,blackPlayerName,whitePlayerId,whitePlayerName,blackScore,blackTheoreticalScore,transcript\n';
+            games.forEach( elem => {
+                csv += elem.tournamentId + ',';
+                csv += elem.tournamentName + ',';
+                csv += elem.blackPlayerId + ',';
+                csv += elem.blackPlayerName + ',';
+                csv += elem.whitePlayerId + ',';
+                csv += elem.whitePlayerName + ',';
+                csv += elem.blackScore + ',';
+                csv += elem.theoreticalBlackScore + ',';
+                csv += elem.transcript + '\n';
+            })
+            return csv;
+        },
+        // 棋譜Box形式出力用
+        formatForKifuBox: function(games) {
+            csv = 'tournamentName,tournamentDate,gameNumber,blackPlayerName,blackPlayerRank,whitePlayerName,whitePlayerRank,result,resultDetail,transcript,comment\n';
+            var previousTournamentId = -1;
+            var gameNumber = 0;
+            games.forEach( elem => {
+                csv += elem.tournamentName + ',';
+                csv += this.year + '/01/01'+ ',';
+                gameNumber = (previousTournamentId == elem.tournamentId) ? gameNumber + 1 : 1;
+                previousTournamentId = elem.tournamentId;
+                csv += gameNumber + ',';
+                csv += elem.blackPlayerName + ',';
+                csv += ',';
+                csv += elem.whitePlayerName + ',';
+                csv += ',';
+                csv += 'A,';
+                csv += ',';
+                csv += elem.transcript + ',';
+                csv += '\n';
+            })
+            return csv;
+        },
+        // ヘッダ情報のバインド
+        bindHeaderInfo: function(header) {
+            this.createCentry = header.createCentry;
+            this.createYear = header.createYear;
+            this.createMonth = header.createMonth;
+            this.createDay = header.createDay;
+            this.gameCount = header.gameCount;
+            this.count = header.count;
+            this.year = header.year;
+            this.boardSize = header.boardSize;
+            this.type = header.type;
+            this.depth = header.depth;
+        },
+        // ボタン押下可否
+        checkButtonDisabled: function(event) {
+            var ret = false;
+            var elementToCheck = ['jou_file', 'trn_file', 'wtb_file'];
+            elementToCheck.forEach( elem => {
+                var fileList = document.getElementById(elem).files;
+                if ( fileList == undefined || fileList.length == 0 ) {
+                    ret = true;
+                }
+            })
+            this.isButtonDisabled = ret;
+        }
+    }
+})
+
+// ヘッダ情報読み込み用
+class WthorHeader {
+static get HEADER_SIZE() { return 16; }
+    constructor ( data ) {
+        var dv = new DataView(data); 
+        var idx = 0;
+        this.createCentry = dv.getUint8(idx, true); idx += 1;
+        this.createYear = dv.getUint8(idx, true); idx += 1;
+        this.createMonth = dv.getUint8(idx, true); idx += 1;
+        this.createDay = dv.getUint8(idx, true); idx += 1;
+        this.gameCount = dv.getUint32(idx, true); idx += 4;
+        this.count = dv.getUint16(idx, true); idx += 2;
+        this.year = dv.getUint16(idx, true); idx += 2;
+        this.boardSize = dv.getUint8(idx, true); idx += 1;
+        this.type = dv.getUint8(idx, true); idx += 1;
+        this.depth = dv.getUint8(idx, true); idx += 1;
+    }
+}
+
+</script>
+</body>
+</html>
