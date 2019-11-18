@@ -76,21 +76,21 @@ new Vue({
     },
     methods: {
         convert: function() {
-            let decoder = new TextDecoder('iso-8859-2');
-            var players = [];
-            var tournaments = [];
-            var games = [];
+            const decoder = new TextDecoder('iso-8859-2');
+            let players = [];
+            let tournaments = [];
+            let games = [];
 
             // .jouファイル読み込み用
-            var jouFile = document.getElementById('jou_file').files[0];
-            var jouReader = new FileReader();
+            let jouFile = document.getElementById('jou_file').files[0];
+            let jouReader = new FileReader();
             jouReader.onload = function(event) {
-                var data = event.target.result;
+                let data = event.target.result;
                 // ヘッダ読み込み
-                var header = new WthorHeader(data);
-                var idx = WthorHeader.HEADER_SIZE;
+                let header = new WthorHeader(data);
+                let idx = WthorHeader.HEADER_SIZE;
                 // データ読み込み
-                for ( var i = 0 ; i < header.count ; i++ ) {
+                for ( let i = 0 ; i < header.count ; i++ ) {
                     players.push(decoder.decode((new Uint8Array(data, idx, 20)).filter(elem => elem != 0)));
                     idx += 20;
                 }
@@ -100,15 +100,15 @@ new Vue({
             }
 
             // .trnファイル読み込み用
-            var trnFile = document.getElementById('trn_file').files[0];
-            var trnReader = new FileReader();
+            let trnFile = document.getElementById('trn_file').files[0];
+            let trnReader = new FileReader();
             trnReader.onload = function(event) {
-                var data = event.target.result;
+                let data = event.target.result;
                 // ヘッダ読み込み
-                var header = new WthorHeader(data);
-                var idx = WthorHeader.HEADER_SIZE;
+                let header = new WthorHeader(data);
+                let idx = WthorHeader.HEADER_SIZE;
                 // データ読み込み
-                for ( var i = 0 ; i < header.count ; i++ ) {
+                for ( let i = 0 ; i < header.count ; i++ ) {
                     tournaments.push(decoder.decode((new Uint8Array(data, idx, 26)).filter(elem => elem != 0)));
                     idx += 26;
                 }
@@ -118,19 +118,19 @@ new Vue({
             }
 
             // .wtbフィル読み込み用
-            var wtbFile = document.getElementById('wtb_file').files[0];
-            var wtbReader = new FileReader();
+            let wtbFile = document.getElementById('wtb_file').files[0];
+            let wtbReader = new FileReader();
             wtbReader.onload = function(event) {
-                var data = event.target.result;
-                var dv = new DataView(data); 
+                let data = event.target.result;
+                let dv = new DataView(data); 
                 // ヘッダ読み込み
-                var header = new WthorHeader(data);
+                let header = new WthorHeader(data);
                 // ヘッダ情報をバインド(画面表示用)
                 this.bindHeaderInfo(header);
 
-                var idx = WthorHeader.HEADER_SIZE;
+                let idx = WthorHeader.HEADER_SIZE;
                 // データ読み込み
-                for ( var i = 0 ; i < header.gameCount ; i++ ) {
+                for ( let i = 0 ; i < header.gameCount ; i++ ) {
                     // 大会ID
                     tournamentId = dv.getUint16(idx, true); idx += 2;
                     // 黒番プレーヤーID
@@ -142,7 +142,7 @@ new Vue({
                     // 黒番の石数理論値(終盤depth手が最善だった場合)
                     theoreticalBlackScore = dv.getUint8(idx, true); idx += 1;
                     transcript = ''
-                    for ( var j = 0 ; j < 60 ; j++ ) {
+                    for ( let j = 0 ; j < 60 ; j++ ) {
                         move = dv.getUint8(idx, true); idx += 1;
                         if ( move >= 11 && move <= 88 ) {
                             transcript += String.fromCharCode((move % 10) + 96)
@@ -165,8 +165,8 @@ new Vue({
             }.bind(this)
 
             // 結果出力用
-            var outputCsv = function(games) {
-                var csv = '';
+            let outputCsv = function(games) {
+                let csv = '';
                 if ( this.format == 'all' ) {
                     csv = this.formatForAll(games);
                 } else if ( this.format == 'kifubox' ) {
@@ -174,7 +174,7 @@ new Vue({
                 } else {
                     return;
                 }
-                var blob = new Blob(['\ufeff', csv], { "type" : "text/csv" });
+                let blob = new Blob(['\ufeff', csv], { "type" : "text/csv" });
                 let link = document.createElement('a');
                 link.href = window.URL.createObjectURL(blob);
                 link.download = 'wthor.csv';
@@ -203,8 +203,8 @@ new Vue({
         // 棋譜Box形式出力用
         formatForKifuBox: function(games) {
             csv = 'tournamentName,tournamentDate,gameNumber,blackPlayerName,blackPlayerRank,whitePlayerName,whitePlayerRank,result,resultDetail,transcript,comment\n';
-            var previousTournamentId = -1;
-            var gameNumber = 0;
+            let previousTournamentId = -1;
+            let gameNumber = 0;
             games.forEach( elem => {
                 csv += elem.tournamentName + ',';
                 csv += this.year + '/01/01'+ ',';
@@ -237,10 +237,10 @@ new Vue({
         },
         // ボタン押下可否
         checkButtonDisabled: function(event) {
-            var ret = false;
-            var elementToCheck = ['jou_file', 'trn_file', 'wtb_file'];
+            let ret = false;
+            let elementToCheck = ['jou_file', 'trn_file', 'wtb_file'];
             elementToCheck.forEach( elem => {
-                var fileList = document.getElementById(elem).files;
+                let fileList = document.getElementById(elem).files;
                 if ( fileList == undefined || fileList.length == 0 ) {
                     ret = true;
                 }
@@ -254,8 +254,8 @@ new Vue({
 class WthorHeader {
 static get HEADER_SIZE() { return 16; }
     constructor ( data ) {
-        var dv = new DataView(data); 
-        var idx = 0;
+        let dv = new DataView(data); 
+        let idx = 0;
         this.createCentry = dv.getUint8(idx, true); idx += 1;
         this.createYear = dv.getUint8(idx, true); idx += 1;
         this.createMonth = dv.getUint8(idx, true); idx += 1;
