@@ -19,8 +19,8 @@
                     <v-file-input id="trn_file" label=".trn ファイル" accept=".trn" v-on:change="checkButtonDisabled"></v-file-input>
                     <v-file-input id="wtb_file" label=".wtb ファイル" accept=".wtb" v-on:change="checkButtonDisabled"></v-file-input>
                     <v-radio-group label="出力形式" v-model="format">
-                        <v-radio value="all" label ="全項目出力"></v-radio>
-                        <v-radio value="kifubox" label ="棋譜Box形式"></v-radio>
+                        <v-radio value="all" label ="全項目出力" color="primary"></v-radio>
+                        <v-radio value="kifubox" label ="棋譜Box形式" color="primary"></v-radio>
                     </v-radio-group>
                     <v-list dense v-if="createCentry">
                         <v-list-item>
