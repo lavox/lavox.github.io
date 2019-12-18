@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<!--
+copyleft (c) 2019
+author: Tanaka Atsushi (lavox)
+
+This work is derived from edax-reversi by Richard Delorme.
+https://github.com/abulmo/edax-reversi
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+</head>
+<body>
+<div id="app">
+<v-app>
+<v-content>
+<v-container>
+    <v-card class="mx-auto" max-width="344">
+        <v-card-title>Edax静的評価関数Viewer</v-card-title>
+        <v-card-text>
+            <v-row v-if="!evalLoaded">
+                <v-file-input id="eval_file" label="eval.dat(ローカルから)" accept=".dat" v-on:change="readFileFromLocal()"></v-file-input>
+            </v-row>
+            <v-row class="mt-n4 align-center" v-if="!evalLoaded">
+                <v-btn text color="primary" v-on:click="readFileFromCloud()">サーバから読み込む</v-btn>
+                <v-progress-circular indeterminate size="20" color="primary" v-if="evalLoading"></v-progress-circular>
+            </v-row>
+            <v-row justify="center">
+                <canvas ref="boardCvs"></canvas>
+            </v-row>
+            <v-row class="mx-2 mt-n2 align-baseline">
+                <span class="mx-2 title black--text">{{ply}}手</span>
+                <v-btn text icon x-small color="primary" :disabled="!manual" v-on:click="onPlusClick()">
+                    <v-icon>mdi-plus-circle-outline</v-icon>
+                </v-btn>
+                <v-btn text icon x-small color="primary" :disabled="!manual" v-on:click="onMinusClick()">
+                    <v-icon>mdi-minus-circle-outline</v-icon>
+                </v-btn>
+                <v-radio-group class="mx-4" v-model="turn" row v-on:change="evaluate()">
+                    <v-radio label="黒番" value="black" color="primary"></v-radio>
+                    <v-radio label="白番" value="white" color="primary"></v-radio>
+                </v-radio-group>
+            </v-row>
+            <v-row class="mx-3 mt-n8 align-center">
+                <v-checkbox v-model="manual" color="primary" label="盤面・手数の手動設定"></v-checkbox>
+                <v-btn text class="mt-n2" color="primary" :disabled="!evalLoaded" v-on:click="onClearClick()">クリア</v-btn>
+                </v-row>
+        </v-card-text>
+        <span class="mx-6 mt-n8 black--text" v-if="evalLoaded">
+            評価値：<span class="headline">{{score}}</span> (合計:{{scoreTotal}})
+        </span>
+        <v-simple-table>
+            <template v-slot:default>
+                <tbody>
+                    <tr v-for="(group, g) in valueList">
+                        <td align="center" v-for="(value, i) in group">
+                            <board-icon 
+                                v-bind:value="value" 
+                                v-bind:gnum="g"
+                                v-bind:vnum="i"
+                                v-bind:board="board">
+                            </board-icon>
+                        </td>
+                    </tr>
+                </tbody>
+            </template>
+        </v-simple-table>
+    </v-card>
+</v-container>
+</v-content>
+</v-app>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+<script>
+
+// セルの定義
+const A1 =  0; const B1 =  1; const C1 =  2; const D1 =  3; const E1 =  4; const F1 =  5; const G1 =  6; const H1 =  7;
+const A2 =  8; const B2 =  9; const C2 = 10; const D2 = 11; const E2 = 12; const F2 = 13; const G2 = 14; const H2 = 15;
+const A3 = 16; const B3 = 17; const C3 = 18; const D3 = 19; const E3 = 20; const F3 = 21; const G3 = 22; const H3 = 23;
+const A4 = 24; const B4 = 25; const C4 = 26; const D4 = 27; const E4 = 28; const F4 = 29; const G4 = 30; const H4 = 31;
+const A5 = 32; const B5 = 33; const C5 = 34; const D5 = 35; const E5 = 36; const F5 = 37; const G5 = 38; const H5 = 39;
+const A6 = 40; const B6 = 41; const C6 = 42; const D6 = 43; const E6 = 44; const F6 = 45; const G6 = 46; const H6 = 47;
+const A7 = 48; const B7 = 49; const C7 = 50; const D7 = 51; const E7 = 52; const F7 = 53; const G7 = 54; const H7 = 55;
+const A8 = 56; const B8 = 57; const C8 = 58; const D8 = 59; const E8 = 60; const F8 = 61; const G8 = 62; const H8 = 63;
+
+// FEATUREの定義
+const FEATURE_DEF = [
+    [
+        [A1, B1, A2, B2, C1, A3, C2, B3, C3],
+        [H1, G1, H2, G2, F1, H3, F2, G3, F3],
+        [A8, A7, B8, B7, A6, C8, B6, C7, C6],
+        [H8, H7, G8, G7, H6, F8, G6, F7, F6]
+    ], [
+        [A5, A4, A3, A2, A1, B2, B1, C1, D1, E1],
+        [H5, H4, H3, H2, H1, G2, G1, F1, E1, D1],
+        [A4, A5, A6, A7, A8, B7, B8, C8, D8, E8],
+        [H4, H5, H6, H7, H8, G7, G8, F8, E8, D8],
+    ], [
+        [B2, A1, B1, C1, D1, E1, F1, G1, H1, G2],
+        [B7, A8, B8, C8, D8, E8, F8, G8, H8, G7],
+        [B2, A1, A2, A3, A4, A5, A6, A7, A8, B7],
+        [G2, H1, H2, H3, H4, H5, H6, H7, H8, G7],
+    ], [
+        [A1, C1, D1, C2, D2, E2, F2, E1, F1, H1],
+        [A8, C8, D8, C7, D7, E7, F7, E8, F8, H8],
+        [A1, A3, A4, B3, B4, B5, B6, A5, A6, A8],
+        [H1, H3, H4, G3, G4, G5, G6, H5, H6, H8],
+    ], [
+        [A2, B2, C2, D2, E2, F2, G2, H2],
+        [A7, B7, C7, D7, E7, F7, G7, H7],
+        [B1, B2, B3, B4, B5, B6, B7, B8],
+        [G1, G2, G3, G4, G5, G6, G7, G8],
+    ], [
+        [A3, B3, C3, D3, E3, F3, G3, H3],
+        [A6, B6, C6, D6, E6, F6, G6, H6],
+        [C1, C2, C3, C4, C5, C6, C7, C8],
+        [F1, F2, F3, F4, F5, F6, F7, F8],
+    ], [
+        [A4, B4, C4, D4, E4, F4, G4, H4],
+        [A5, B5, C5, D5, E5, F5, G5, H5],
+        [D1, D2, D3, D4, D5, D6, D7, D8],
+        [E1, E2, E3, E4, E5, E6, E7, E8],
+    ], [
+        [A1, B2, C3, D4, E5, F6, G7, H8],
+        [A8, B7, C6, D5, E4, F3, G2, H1],
+    ], [
+        [B1, C2, D3, E4, F5, G6, H7],
+        [H2, G3, F4, E5, D6, C7, B8],
+        [A2, B3, C4, D5, E6, F7, G8],
+        [G1, F2, E3, D4, C5, B6, A7],
+    ], [
+        [C1, D2, E3, F4, G5, H6],
+        [A3, B4, C5, D6, E7, F8],
+        [F1, E2, D3, C4, B5, A6],
+        [H3, G4, F5, E6, D7, C8],
+    ], [
+        [D1, E2, F3, G4, H5],
+        [A4, B5, C6, D7, E8],
+        [E1, D2, C3, B4, A5],
+        [H4, G5, F6, E7, D8],
+    ], [
+        [D1, C2, B3, A4],
+        [A5, B6, C7, D8],
+        [E1, F2, G3, H4],
+        [H5, G6, F7, E8],
+    ], [
+        [],
+    ],
+];
+
+// 整数の割り算
+function div(a, b) {
+    return Math.floor(a / b);
+}
+
+// 黒と白を反転
+const OPPONENT = [1, 0, 2];
+function opponent_feature(l, d) {
+    let f = OPPONENT[l % 3];
+    if ( d > 1 ) {
+        f += opponent_feature(div(l, 3), d - 1) * 3;
+    } else if ( d == 0 ) {
+        return 0;
+    }
+    return f;
+}
+
+// 盤の状態から、featureに応じたPACK前indexを取得
+function getIndex(board, cellCoords) {
+    let fi = 0;
+    for ( let j = 0 ; j < cellCoords.length ; j++ ) {
+        fi = fi * 3 + board[cellCoords[j]];
+    }
+    return fi;
+}
+
+// FEATUREのパターンごとのPACK済みサイズ
+const PACKED_WEIGHT_N_SIZE = [10206, 29889, 29646, 29646, 3321, 3321, 3321, 3321, 1134, 378, 135, 45, 1];
+// FEATUREのパターンごとのindexのマップ
+const PACK_DEF_MAP = [0, 1, 2, 2, 3, 3, 3, 3, 4, 5, 6, 7, 8];
+// PACKに関する情報の定義(total: PACK前のサイズ、 cells: 対象マス数、 symmetry: 対象形のセルのindex)
+const PACK_DEF = [
+    {
+        total: 19683,
+        cells: 9,
+        symmetry: function(l) {
+            return (div(l, 6561) % 3) * 6561 + (div(l, 729) % 3) * 2187 +
+                    (div(l, 2187) % 3) * 729 + (div(l, 243) % 3) * 243 +(div(l, 27) % 3) * 81 +
+                    (div(l, 81) % 3) * 27 + (div(l, 3) % 3) * 9 + (div(l, 9) % 3) * 3 + (l % 3);
+        }
+    },
+    {
+        total: 59049,
+        cells: 10,
+        symmetry: function(l) {
+            return (div(l, 19683) % 3) + (div(l, 6561) % 3) * 3+(div(l, 2187) % 3) * 9 +
+                    (div(l, 729) % 3) * 27 + (div(l, 243) % 3) * 243 + (div(l, 81) % 3) * 81 +
+                    (div(l, 27) % 3) * 729 + (div(l, 9) % 3) * 2187 + (div(l, 3) % 3) * 6561 +
+                    (l % 3) * 19683;
+        }
+    },
+    {
+        total: 59049,
+        cells: 10,
+        symmetry: function(l) {
+            return (div(l, 19683) % 3) + (div(l, 6561) % 3) * 3+(div(l, 2187) % 3) * 9 +
+                    (div(l, 729) % 3) * 27 + (div(l, 243) % 3) * 81 + (div(l, 81) % 3) * 243 +
+                    (div(l, 27) % 3) * 729 + (div(l, 9) % 3) * 2187 + (div(l, 3) % 3) * 6561 +
+                    (l % 3) * 19683;
+        }
+    },
+    {
+        total: 6561,
+        cells: 8,
+        symmetry: function(l) {
+            return (div(l, 2187) % 3) + (div(l, 729) % 3) * 3 + (div(l, 243) % 3) * 9 +
+                    (div(l, 81) % 3) * 27 + (div(l, 27) % 3) * 81 + (div(l, 9) % 3) * 243 +
+                    (div(l, 3) % 3) * 729 + (l % 3) * 2187;
+        }
+    },
+    {
+        total: 2187,
+        cells: 7,
+        symmetry: function(l) {
+            return (div(l, 729) % 3) + (div(l, 243) % 3) * 3 + (div(l, 81) % 3) * 9 +
+                    (div(l, 27) % 3) * 27 + (div(l, 9) % 3) * 81 + (div(l, 3) % 3) * 243 +
+                    (l % 3) * 729;
+        }
+    },
+    {
+        total: 729,
+        cells: 6,
+        symmetry: function(l) {
+            return (div(l, 243) % 3) + (div(l, 81) % 3) * 3 + (div(l, 27) % 3) * 9 +
+                    (div(l, 9) % 3) * 27 + (div(l, 3) % 3) * 81 + (l % 3) * 243;
+        }
+    },
+    {
+        total: 243,
+        cells: 5,
+        symmetry: function(l) {
+            return (div(l, 81) % 3)+(div(l, 27) % 3) * 3 + (div(l, 9) % 3) * 9+
+                    (div(l, 3) % 3) * 27 + (l % 3) * 81;
+        }
+    },
+    {
+        total: 81,
+        cells: 4,
+        symmetry: function(l) {
+            return (div(l, 27) % 3) + (div(l, 9) % 3) * 3 + (div(l, 3) % 3) * 9 + (l % 3) * 27;
+        }
+    },
+    {
+        total: 1,
+        cells: 0,
+        symmetry: function(l) {
+            return 0;
+        }
+    },
+]
+
+// 円の描画
+function drawCircle(ctx, color, pos, size, r) {
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.arc( ((pos % 8) + 0.5) * size , (div(pos, 8) + 0.5) * size , r, 
+        0, 2 * Math.PI, false );
+    ctx.fill();
+    ctx.stroke();
+}
+
+// PACK済みのままのFEATUREのパターンごとの黒番から見た評価ウェイト
+// PACKED_WEIGHT[ply][FEATUREパターン番号][PACK済みindex]
+let PACKED_WEIGHT = [];
+
+// PACK前indexをPACK済みindexに変換するマップ
+// INDEX_MAP[FEATUREパターン番号][PACK前index]
+let INDEX_MAP = [];
+
+// 盤・マスのサイズ
+const cellSize = 36;
+const boardSize = cellSize * 8 + 1;
+const iconCellSize = 5;
+const iconSize = iconCellSize * 8;
+
+Vue.component("board-icon", {
+    props: {
+        value: Number,
+        gnum: Number,
+        vnum: Number,
+        board: Array,
+    },
+    template: '<span><v-row justify="center"><canvas ref="icon" width="24" height="24"></canvas></v-row>' 
+                + '<v-row justify="center"><span class="black--text body-1">{{value}}</span></v-row></span>',
+    computed: {
+        // このコンポーネントが対象としているセルの石の状態
+        cellList: function () {
+            return FEATURE_DEF[this.gnum][this.vnum].map(x => this.board[x]);
+        }
+    },
+    methods: {
+        // アイコンの描画
+        drawIcon: function() {
+            canvas = this.$refs.icon;
+            canvas.width = iconSize;
+            canvas.height = iconSize;
+            var ctx = canvas.getContext('2d');
+            // 薄い背景色
+            ctx.fillStyle = 'rgb(128, 186, 167)';
+            ctx.fillRect(0, 0, iconSize, iconSize);
+
+            for ( let i = 0 ; i < FEATURE_DEF[this.gnum][this.vnum].length ; i++ ) {
+                // 濃い背景色
+                let cell = FEATURE_DEF[this.gnum][this.vnum][i];
+                ctx.fillStyle = 'rgb(1, 116, 77)';
+                ctx.fillRect((cell % 8) * iconCellSize, div(cell, 8) * iconCellSize, iconCellSize, iconCellSize);
+                // 石
+                switch (this.board[cell]) {
+                    case 0:
+                        drawCircle(ctx, 'rgb(0, 0, 0)', cell, iconCellSize, iconCellSize * 0.4);
+                        break;
+                    case 1:
+                        drawCircle(ctx, 'rgb(255, 255, 255)', cell, iconCellSize, iconCellSize * 0.4);
+                        break;
+                }
+            }
+        }
+    },
+    mounted: function() {
+        this.drawIcon();
+    },
+    watch: { 
+        cellList: {
+            handler: function () {
+                this.drawIcon();
+            },
+            deep: true,
+        }
+    }
+})
+
+new Vue({
+    el: '#app',
+    vuetify: new Vuetify(),
+    data: () => ({ 
+        valueList : [],
+        board: [
+                2, 2, 2, 2, 2, 2, 2, 2,
+                2, 2, 2, 2, 2, 2, 2, 2, 
+                2, 2, 2, 2, 2, 2, 2, 2, 
+                2, 2, 2, 1, 0, 2, 2, 2, 
+                2, 2, 2, 0, 1, 2, 2, 2, 
+                2, 2, 2, 2, 2, 2, 2, 2, 
+                2, 2, 2, 2, 2, 2, 2, 2, 
+                2, 2, 2, 2, 2, 2, 2, 2, 
+            ],
+        scoreTotal : 0,
+        manual : false,
+        ply : 0,
+        turn : "black",
+        evalLoading : false,
+        evalLoaded : false,
+    }),
+    computed: {
+        // 評価値
+        score: function () {
+            let val = this.scoreTotal / 128;
+            if ( val < -64 ) {
+                val = -64;
+            } else if ( val > 64 ) {
+                val = 64;
+            }
+            return val.toFixed(1);
+        }
+    },
+    methods: {
+        readFileFromLocal: function() {
+            // eval.datファイルローカル読み込み用
+            let file = document.getElementById('eval_file').files[0];
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                let data = event.target.result;
+                let dv = new DataView(data); 
+                this.setEvalInfo(dv);
+                // 盤面クリックの受付開始
+                let canvas = this.$refs.boardCvs;
+                canvas.addEventListener('click', this.onClick, false);
+            }.bind(this);
+
+            // eval.datファイル読み込み開始
+            reader.readAsArrayBuffer(file);
+        },
+        readFileFromCloud: function() {
+            // eval.datファイルクラウド読み込み用
+            this.evalLoading = true;
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://lavox.github.io/eval.dat', true);
+            xhr.responseType = 'arraybuffer';
+            xhr.onload = function(e) {
+                let arrayBuffer = xhr.response;
+                let dv = new DataView(arrayBuffer); 
+                this.setEvalInfo(dv);
+                // 盤面クリックの受付開始
+                let canvas = this.$refs.boardCvs;
+                canvas.addEventListener('click', this.onClick, false);
+                this.evalLoading = false;
+            }.bind(this);
+            xhr.send();
+        },
+        setEvalInfo: function(dv) {
+            let idx = 0;
+            // ヘッダ読み込み
+            let edax = dv.getUint32(idx, true); idx += 4;
+            let eval = dv.getUint32(idx, true); idx += 4;
+            if ( edax != 0x45444158 || eval != 0x4556414c ) {
+                alert("eval.datファイルではありません");
+                return;
+            }
+
+            idx = 28;
+            for ( let i = 0 ; i < 61 ; i++ ) {
+                var plyArr = [];
+                for ( let j = 0 ; j < PACKED_WEIGHT_N_SIZE.length ; j++ ) {
+                    var arr = [];
+                    for ( let k = 0 ; k < PACKED_WEIGHT_N_SIZE[j] ; k++ ) {
+                        arr.push(dv.getInt16(idx, true)); idx += 2;
+                    }
+                    plyArr.push(arr);
+                }
+                PACKED_WEIGHT.push(plyArr);
+            }
+
+            INDEX_MAP = [];
+            for ( let i = 0 ; i < PACK_DEF.length ; i++ ) {
+                let packDef = PACK_DEF[i];
+                let n = 0;
+                let arr = [];
+                for ( let j = 0 ; j < packDef.total ; j++ ) {
+                    let k = (packDef.symmetry)(j);
+                    if ( k < j ) {
+                        arr.push(arr[k]);
+                    } else {
+                        arr.push(n++);
+                    }
+                }
+                INDEX_MAP.push(arr);
+            }
+            this.evalLoaded = true;
+            this.evaluate();
+        },
+        evaluate: function() {
+            this.valueList = [];
+            this.scoreTotal = 0;
+            for ( let pattern = 0 ; pattern < FEATURE_DEF.length ; pattern++ ) {
+                let array = [];
+                for ( let f = 0 ; f < FEATURE_DEF[pattern].length ; f++ ) {
+                    let cellCoords = FEATURE_DEF[pattern][f];
+                    let index = getIndex(this.board, cellCoords);
+                    let packDef = PACK_DEF[PACK_DEF_MAP[pattern]];
+                    let MAP = INDEX_MAP[PACK_DEF_MAP[pattern]];
+                    let featureValue = 0;
+                    if ( this.turn == "black" ) {
+                        featureValue = PACKED_WEIGHT[this.ply][pattern][MAP[index]];
+                    } else {
+                        featureValue = PACKED_WEIGHT[this.ply][pattern][MAP[opponent_feature(index, packDef.cells)]];
+                    }
+                    array.push(featureValue);
+                    this.scoreTotal += featureValue;
+                }
+                this.valueList.push(array);
+            }
+        },
+        onClick: function(e) {
+            let rect = e.target.getBoundingClientRect();
+            let x = div(e.clientX - rect.left, cellSize);
+            let y = div(e.clientY - rect.top, cellSize);
+            if ( x >= 0 && x < 8 && y >= 0 && y < 8 ) {
+                if ( this.manual ) {
+                    // 手動モードの場合はそのマスの石を変える
+                    this.$set(this.board, x + y * 8, (this.board[x + y * 8] + 1) % 3);
+                    this.drawBoard();
+                    this.evaluate();
+                } else {
+                    // 自動モードの場合は着手
+                    let flipped = this.flip( x + y * 8, this.turn == "black" ? 0 : 1);
+                    if ( flipped ) {
+                        this.turn = (this.turn == "black") ? "white" : "black";
+                        this.drawBoard();
+                        this.changePly(this.board.filter(x => x != 2).length - 4);
+                    }
+                }
+            }
+        },
+        onPlusClick: function() {
+            this.changePly(this.ply + 1);
+        },
+        onMinusClick: function() {
+            this.changePly(this.ply - 1);
+        },
+        onManualClick: function() {
+            this.changePly(this.board.filter(x => x != 2).length - 4);
+        },
+        onClearClick: function() {
+            Object.assign(this.$data, this.$options.data());
+            this.evalLoaded = true;
+            this.evaluate();
+            this.drawBoard();
+        },
+        changePly: function(ply) {
+            if ( ply < 0) {
+                this.ply = 0;
+            } else if ( ply > 60 ) {
+                this.ply = 60;
+            } else {
+                this.ply = ply;
+            }
+            this.evaluate();
+        },
+        // 石の描画
+        drawBoard: function() {
+            let canvas = this.$refs.boardCvs;
+            var ctx = canvas.getContext('2d');
+            ctx.lineWidth = 1;
+            for ( let i = 0 ; i < this.board.length ; i++ ) {
+                ctx.fillStyle = 'rgb(1, 116, 77)';
+                ctx.fillRect((i % 8) * cellSize + 1 , div(i, 8) * cellSize + 1 , 
+                    cellSize - 2 , cellSize - 2);
+                switch ( this.board[i] ) {
+                    case 0:
+                        drawCircle(ctx, 'rgb(0, 0, 0)', i, cellSize, cellSize * 0.4);
+                        break;
+                    case 1:
+                        drawCircle(ctx, 'rgb(255, 255, 255)', i, cellSize, cellSize * 0.4);
+                        break;
+                }
+            }
+        },
+        // 石を返す
+        flip: function(move, color) {
+            // move: 着手地点、 color: 着手した色
+
+            // 着手地点に石があれば置けない
+            if ( this.board[move] != 2 ) {
+                return false;
+            }
+
+            let flipped = false;
+            // 8方向の石のチェック
+            [-9, -8, -7, -1, 1, 7, 8, 9].forEach( function(dir) {
+                let cur = move; //現在マス
+                let candidate = []; //返す候補の石
+                let leftward = (dir == -9) || (dir == -1) || (dir == 7);
+                let rightward = (dir == -7) || (dir == 1) || (dir == 9);
+                while ( true ) {
+                    cur += dir;
+                    if ( cur < 0 || cur > 63 || ((cur % 8) == 0 && rightward) || ((cur % 8) == 7 && leftward) || this.board[cur] == 2) {
+                        // 盤外や空きマスに到達したら返らない
+                        break;
+                    } else if ( this.board[cur] == color ) {
+                        // 自分の石に到達した場合はそこまでの石を返す
+                        candidate.forEach( function( idx ) {
+                            this.$set(this.board, idx, color);
+                            flipped = true;
+                        }, this);
+                        break;
+                    } else {
+                        // 相手の石は候補としてキープ
+                        candidate.push(cur);
+                    }
+                }
+            }, this);
+            // 返った場合は着手地点に石を置く
+            if ( flipped ) {
+                this.$set(this.board, move, color);
+            }
+            return flipped;
+        }
+    },
+    mounted: function() {
+        // 盤の枠線等の描画
+        let canvas = this.$refs.boardCvs;
+        canvas.width = boardSize;
+        canvas.height = boardSize;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgb(1, 116, 77)';
+        ctx.fillRect(0, 0, boardSize, boardSize);
+        ctx.strokeStyle = 'rgb(0, 0, 0)';
+        ctx.lineWidth = 1;
+
+        for ( let i = 0 ; i <= 8 ; i++ ) {
+            ctx.beginPath();
+            ctx.moveTo(i * cellSize, 0);
+            ctx.lineTo(i * cellSize, boardSize);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i * cellSize);
+            ctx.lineTo(boardSize, i * cellSize);
+            ctx.stroke();
+        }
+        this.drawBoard();
+    },
+})
+</script>
+</body>
+</html>
