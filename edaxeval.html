@@ -26,6 +26,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <style>
+    .board {
+        width: 48px;
+        height: 48px;
+    }
+    .boardrow {
+        height: 76px;
+    }
+</style>
 </head>
 <body>
 <div id="app">
@@ -69,7 +78,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         <v-simple-table>
             <template v-slot:default>
                 <tbody>
-                    <tr v-for="(group, g) in valueList">
+                    <tr class="boardrow" v-for="(group, g) in valueList">
                         <td align="center" v-for="(value, i) in group">
                             <board-icon 
                                 v-bind:value="value" 
@@ -310,7 +319,7 @@ Vue.component("board-icon", {
         vnum: Number,
         board: Array,
     },
-    template: '<span><v-row justify="center"><canvas ref="icon" width="24" height="24"></canvas></v-row>' 
+    template: '<span><v-row justify="center"><canvas class="board" ref="icon" width="24" height="24"></canvas></v-row>' 
                 + '<v-row justify="center"><span class="black--text body-1">{{value}}</span></v-row></span>',
     computed: {
         // このコンポーネントが対象としているセルの石の状態
